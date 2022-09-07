@@ -40,11 +40,12 @@ executors:
   android-executor:
     machine:
       image: android:2022.08.1
-      resource_class: xlarge
+      resource_class: large
 
 test_env_vars: &test_env_vars
   environment:
-    NPM_REGISTRY: http://0.0.0.0:4873/
+    # TODO: undo
+    # NPM_REGISTRY: http://0.0.0.0:4873/
     NPM_USER: circleci
     NPM_PASS: circleci
     NPM_EMAIL: circleci@amplify.js
@@ -245,8 +246,8 @@ commands:
     steps:
       - attach_workspace:
           at: ~/
-      - install_verdaccio
-      - publish_to_verdaccio
+      # - install_verdaccio
+      # - publish_to_verdaccio
       - restore_cache:
           key: |
             brew-cache-{{ arch }}-{{ .Environment.CACHE_VERSION }}
@@ -355,25 +356,27 @@ jobs:
 
   integ_setup:
     executor: build-executor
-    working_directory: ~/
     steps:
+      - checkout
       - run:
           name: 'Clone Amplify JS Samples repo, install cypress, install react samples authenticator and link amplify packages'
           command: |
             mkdir ~/.ssh/ && echo -e "Host github.com\n\tStrictHostKeyChecking no\n" > ~/.ssh/config
             echo $SSH_HOST_PUBLIC_KEY >> ~/.ssh/known_hosts
-            git clone -b rn-upgrade-integ-test $AMPLIFY_JS_SAMPLES_STAGING_URL
+            # TODO - cd ~/
+            cd ~/ && git clone $AMPLIFY_JS_SAMPLES_STAGING_URL
             cd amplify-js-samples-staging
-            git checkout rn-upgrade-integ-test
+            git checkout rn-upgrade-integ-test-2
             yarn
       - save_cache:
-          key: amplify-js-{{ .Branch }}-{{ checksum "amplify-js-samples-staging/yarn.lock" }}
+          key: amplify-js-{{ .Branch }}-{{ checksum "~/amplify-js-samples-staging/yarn.lock" }}
           paths:
             - ~/.cache ## cache both yarn and Cypress
       - persist_to_workspace:
           root: /root
           paths:
             - amplify-js-samples-staging
+            - amplify-js
 
   # integ_react_auth:
   #   parameters:
@@ -1183,7 +1186,7 @@ releasable_branches: &releasable_branches
       - ui-components/main
       - 1.0-stable
       - geo/main
-      - storage/react-native-v-upgrade
+      - storage/react-native-v-upgrade-2
 
 test_browsers: &test_browsers
   browser: [chrome, firefox]
@@ -1215,7 +1218,7 @@ workflows:
       not:
         equal: [scheduled_pipeline, << pipeline.trigger_source >>]
     jobs:
-      - build
+      # - build
       - integ_setup:
           filters:
             <<: *releasable_branches
@@ -1531,13 +1534,13 @@ workflows:
       - integ_rn_android_storage:
           requires:
             - integ_setup
-            - build
+            # - build
           filters:
             <<: *releasable_branches
       - integ_rn_android_storage_multipart_progress:
           requires:
             - integ_setup
-            - build
+            # - build
           filters:
             <<: *releasable_branches
       # # - integ_rn_ios_datastore_sqlite_adapter:
@@ -1591,61 +1594,61 @@ workflows:
       #     matrix:
       #       parameters:
       #         <<: *test_browsers
-      - deploy:
-          filters:
-            <<: *releasable_branches
-          requires:
-            # - unit_test
-            # - integ_react_delete_user
-            # - integ_react_predictions
-            # - integ_react_datastore
-            # - integ_react_datastore_v2
-            # - integ_react_datastore_multi_auth_one_rule
-            # - integ_react_datastore_multi_auth_one_rule_v2
-            # - integ_react_datastore_multi_auth_two_rules
-            # - integ_react_datastore_multi_auth_two_rules_v2
-            # - integ_react_datastore_multi_auth_three_plus_rules
-            # - integ_react_datastore_multi_auth_three_plus_rules_v2
-            # - integ_react_datastore_subs_disabled
-            # - integ_react_datastore_subs_disabled_v2
-            # - integ_react_datastore_consecutive_saves
-            # - integ_react_datastore_consecutive_saves_v2
-            # - integ_react_datastore_observe_query
-            # - integ_react_datastore_observe_query_v2
-            # - integ_react_datastore_schema_drift
-            # - integ_react_storage
-            # - integ_react_storage_multipart_progress
-            # - integ_react_storage_copy
-            # - integ_react_storage_ui
-            # - integ_react_interactions
-            # - integ_angular_interactions
-            # - integ_vue_interactions
-            # - integ_react_amazon_cognito_identity_js_cookie_storage
-            # - integ_react_amazon_cognito_identity_js
-            # - integ_node_amazon_cognito_identity_js
-            # - integ_react_auth
-            # - integ_angular_auth
-            # - integ_vue_auth
-            # - integ_rn_ios_storage
-            # - integ_rn_ios_storage_multipart_progress
-            # - integ_rn_ios_push_notifications
-            - integ_rn_android_storage
-            - integ_rn_android_storage_multipart_progress
-            # # - integ_rn_ios_datastore_sqlite_adapter
-            # - integ_datastore_auth
-            # - integ_datastore_auth_v2
-            #   # - integ_duplicate_packages
-            # - integ_auth_test_cypress_no_ui
-            # - integ_react_graphql_api
-            # - integ_react_geo
-            # - integ_next_datastore_owner_auth
-      - post_release:
-          filters:
-            branches:
-              only:
-                - release
-          requires:
-            - deploy
+      # - deploy:
+      #     filters:
+      #       <<: *releasable_branches
+      #     requires:
+      # - unit_test
+      # - integ_react_delete_user
+      # - integ_react_predictions
+      # - integ_react_datastore
+      # - integ_react_datastore_v2
+      # - integ_react_datastore_multi_auth_one_rule
+      # - integ_react_datastore_multi_auth_one_rule_v2
+      # - integ_react_datastore_multi_auth_two_rules
+      # - integ_react_datastore_multi_auth_two_rules_v2
+      # - integ_react_datastore_multi_auth_three_plus_rules
+      # - integ_react_datastore_multi_auth_three_plus_rules_v2
+      # - integ_react_datastore_subs_disabled
+      # - integ_react_datastore_subs_disabled_v2
+      # - integ_react_datastore_consecutive_saves
+      # - integ_react_datastore_consecutive_saves_v2
+      # - integ_react_datastore_observe_query
+      # - integ_react_datastore_observe_query_v2
+      # - integ_react_datastore_schema_drift
+      # - integ_react_storage
+      # - integ_react_storage_multipart_progress
+      # - integ_react_storage_copy
+      # - integ_react_storage_ui
+      # - integ_react_interactions
+      # - integ_angular_interactions
+      # - integ_vue_interactions
+      # - integ_react_amazon_cognito_identity_js_cookie_storage
+      # - integ_react_amazon_cognito_identity_js
+      # - integ_node_amazon_cognito_identity_js
+      # - integ_react_auth
+      # - integ_angular_auth
+      # - integ_vue_auth
+      # - integ_rn_ios_storage
+      # - integ_rn_ios_storage_multipart_progress
+      # - integ_rn_ios_push_notifications
+      # - integ_rn_android_storage
+      # - integ_rn_android_storage_multipart_progress
+      # # - integ_rn_ios_datastore_sqlite_adapter
+      # - integ_datastore_auth
+      # - integ_datastore_auth_v2
+      #   # - integ_duplicate_packages
+      # - integ_auth_test_cypress_no_ui
+      # - integ_react_graphql_api
+      # - integ_react_geo
+      # - integ_next_datastore_owner_auth
+      # - post_release:
+      #     filters:
+      #       branches:
+      #         only:
+      #           - release
+      #     requires:
+      #       - deploy
   # Scheduled smoke test workflow
   # Jobs are pulled from the getting-started-smoke-test inline orb defined below
   canaries:
