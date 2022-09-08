@@ -281,7 +281,7 @@ commands:
           command: npm i -g detox-cli
       - run:
           name: Detox Build
-          command: detox build -c android.emu.debug
+          command: detox build -c android.emu.release
       - run:
           name: Wait for emulator to start
           command: |
@@ -300,7 +300,7 @@ commands:
             JEST_JUNIT_OUTPUT_NAME: 'detox-test-results.xml'
           name: Detox Test
           command: |
-            ~/amplify-js/.circleci/retry-yarn-script.sh -s 'detox test -c android.emu.debug -u' -n 3
+            ~/amplify-js/.circleci/retry-yarn-script.sh -s 'detox test -c android.emu.release -u' -n 3
       - store_test_results:
           path: reports/junit
       - store_artifacts:
