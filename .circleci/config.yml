@@ -44,8 +44,7 @@ executors:
 
 test_env_vars: &test_env_vars
   environment:
-    # TODO: undo
-    # NPM_REGISTRY: http://0.0.0.0:4873/
+    NPM_REGISTRY: http://0.0.0.0:4873/
     NPM_USER: circleci
     NPM_PASS: circleci
     NPM_EMAIL: circleci@amplify.js
@@ -246,8 +245,8 @@ commands:
     steps:
       - attach_workspace:
           at: ~/
-      # - install_verdaccio
-      # - publish_to_verdaccio
+      - install_verdaccio
+      - publish_to_verdaccio
       - restore_cache:
           key: |
             brew-cache-{{ arch }}-{{ .Environment.CACHE_VERSION }}
@@ -356,15 +355,14 @@ jobs:
 
   integ_setup:
     executor: build-executor
+    working_directory: ~/
     steps:
-      - checkout
       - run:
           name: 'Clone Amplify JS Samples repo, install cypress, install react samples authenticator and link amplify packages'
           command: |
             mkdir ~/.ssh/ && echo -e "Host github.com\n\tStrictHostKeyChecking no\n" > ~/.ssh/config
             echo $SSH_HOST_PUBLIC_KEY >> ~/.ssh/known_hosts
-            # TODO - cd ~/
-            cd ~/ && git clone $AMPLIFY_JS_SAMPLES_STAGING_URL
+            git clone $AMPLIFY_JS_SAMPLES_STAGING_URL
             cd amplify-js-samples-staging
             git checkout rn-upgrade-integ-test-2
             yarn
@@ -376,7 +374,6 @@ jobs:
           root: /root
           paths:
             - amplify-js-samples-staging
-            - amplify-js
 
   # integ_react_auth:
   #   parameters:
@@ -1218,7 +1215,7 @@ workflows:
       not:
         equal: [scheduled_pipeline, << pipeline.trigger_source >>]
     jobs:
-      # - build
+      - build
       - integ_setup:
           filters:
             <<: *releasable_branches
@@ -1534,13 +1531,13 @@ workflows:
       - integ_rn_android_storage:
           requires:
             - integ_setup
-            # - build
+            - build
           filters:
             <<: *releasable_branches
       - integ_rn_android_storage_multipart_progress:
           requires:
             - integ_setup
-            # - build
+            - build
           filters:
             <<: *releasable_branches
       # # - integ_rn_ios_datastore_sqlite_adapter:
