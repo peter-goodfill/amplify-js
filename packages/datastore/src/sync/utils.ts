@@ -30,9 +30,10 @@ import {
 } from '../types';
 import {
 	exhaustiveCheck,
-	extractPrimaryKeyFieldNames,
 	establishRelationAndKeys,
 	IDENTIFIER_KEY_SEPARATOR,
+	extractPrimaryKeyFieldNames,
+	extractPrimaryKeysAndValues,
 } from '../util';
 import { MutationEvent } from './';
 
@@ -424,30 +425,19 @@ export function createMutationInstanceFromModelOperation<
 			exhaustiveCheck(opType);
 	}
 
-	// stringify nested objects of type AWSJSON
-	// this allows us to return parsed JSON to users (see `castInstanceType()` in datastore.ts),
-	// but still send the object correctly over the wire
-	const replacer = (k, v) => {
-		const isAWSJSON =
-			k &&
-			v !== null &&
-			typeof v === 'object' &&
-			modelDefinition.fields[k] &&
-			modelDefinition.fields[k].type === 'AWSJSON';
-
-		if (isAWSJSON) {
-			return JSON.stringify(v);
-		}
-		return v;
-	};
-
 	const modelId = getIdentifierValue(modelDefinition, element);
 	const optionalId = OpType.INSERT && id ? { id } : {};
 
+	const keyFields = extractPrimaryKeyFieldNames(modelDefinition);
+	const modelPk = extractPrimaryKeysAndValues(element, keyFields);
+
 	const mutationEvent = modelInstanceCreator(MutationEventConstructor, {
 		...optionalId,
-		data: JSON.stringify(element, replacer),
+		// TODO - can we stringify in MP?
+		// data: JSON.stringify(element, replacer),
+		data: element,
 		modelId,
+		modelPk,
 		model: model.name,
 		operation,
 		condition: JSON.stringify(condition),
@@ -661,9 +651,7 @@ export function getIdentifierValue(
 ): string {
 	const pkFieldNames = extractPrimaryKeyFieldNames(modelDefinition);
 
-	const idOrPk = pkFieldNames
-		.map(f => model[f])
-		.join(IDENTIFIER_KEY_SEPARATOR);
+	const idOrPk = pkFieldNames.map(f => model[f]).join(IDENTIFIER_KEY_SEPARATOR);
 
 	return idOrPk;
 }

@@ -30,6 +30,11 @@ Object {
       },
       Object {
         "inbound": false,
+        "rows": Array [],
+        "tableName": "sync_PendingMutationVersion",
+      },
+      Object {
+        "inbound": false,
         "rows": Array [
           Object {
             "$": Array [
@@ -481,6 +486,11 @@ Object {
       },
       Object {
         "name": "sync_MutationEvent",
+        "rowCount": 0,
+        "schema": "++,&[id]",
+      },
+      Object {
+        "name": "sync_PendingMutationVersion",
         "rowCount": 0,
         "schema": "++,&[id]",
       },

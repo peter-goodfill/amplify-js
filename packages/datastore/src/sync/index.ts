@@ -57,13 +57,29 @@ export declare class MutationEvent {
 	public readonly model: string;
 	public readonly operation: TransformerMutationType;
 	public readonly modelId: string;
+	public readonly modelPk: (string | number | boolean)[];
 	public readonly condition: string;
-	public readonly data: string;
+	public readonly data: PersistentModel;
 	constructor(init: ModelInit<MutationEvent>);
 	static copyOf(
 		src: MutationEvent,
 		mutator: (draft: MutableModel<MutationEvent>) => void | MutationEvent
 	): MutationEvent;
+}
+
+export declare class PendingMutationVersion {
+	readonly [__modelMeta__]: {
+		identifier: OptionallyManagedIdentifier<PendingMutationVersion, 'id'>;
+	};
+	public readonly id: string;
+	public readonly version: number;
+	constructor(init: ModelInit<PendingMutationVersion>);
+	static copyOf(
+		src: PendingMutationVersion,
+		mutator: (
+			draft: MutableModel<PendingMutationVersion>
+		) => void | PendingMutationVersion
+	): PendingMutationVersion;
 }
 
 export declare class ModelMetadata {
@@ -135,9 +151,14 @@ export class SyncEngine {
 			'MutationEvent'
 		] as PersistentModelConstructor<MutationEvent>;
 
+		const PendingMutationVersion = this.modelClasses[
+			'PendingMutationVersion'
+		] as PersistentModelConstructor<PendingMutationVersion>;
+
 		this.outbox = new MutationEventOutbox(
 			this.schema,
 			MutationEvent,
+			PendingMutationVersion,
 			modelInstanceCreator,
 			ownSymbol
 		);
@@ -306,7 +327,12 @@ export class SyncEngine {
 										);
 
 										this.storage.runExclusive(storage =>
-											this.modelMerger.merge(storage, model, modelDefinition)
+											this.modelMerger.merge(
+												storage,
+												model,
+												modelDefinition,
+												modelConstructor
+											)
 										);
 
 										observer.next({
@@ -343,7 +369,12 @@ export class SyncEngine {
 											);
 
 											this.storage.runExclusive(storage =>
-												this.modelMerger.merge(storage, model, modelDefinition)
+												this.modelMerger.merge(
+													storage,
+													model,
+													modelDefinition,
+													modelConstructor
+												)
 											);
 										}
 									)
@@ -566,7 +597,8 @@ export class SyncEngine {
 											const opType = await this.modelMerger.merge(
 												storage,
 												item,
-												modelDefinition
+												modelDefinition,
+												modelConstructor
 											);
 
 											if (opType !== undefined) {
@@ -871,12 +903,13 @@ export class SyncEngine {
 							isRequired: true,
 							isArray: false,
 						},
-						data: {
-							name: 'data',
-							type: 'String',
-							isRequired: true,
-							isArray: false,
-						},
+						// DATA is now an object and gets stringified before the mutation gets sent
+						// data: {
+						// 	name: 'data',
+						// 	type: 'String',
+						// 	isRequired: true,
+						// 	isArray: false,
+						// },
 						modelId: {
 							name: 'modelId',
 							type: 'String',
@@ -898,6 +931,33 @@ export class SyncEngine {
 							isRequired: true,
 						},
 					},
+				},
+				PendingMutationVersion: {
+					name: 'PendingMutationVersion',
+					pluralName: 'PendingMutationVersions',
+					syncable: false,
+					fields: {
+						id: {
+							name: 'id',
+							type: 'ID',
+							isRequired: true,
+							isArray: false,
+						},
+						version: {
+							name: 'version',
+							type: 'Int',
+							isRequired: true,
+							isArray: false,
+						},
+					},
+					attributes: [
+						{
+							type: 'key',
+							properties: {
+								fields: ['id'],
+							},
+						},
+					],
 				},
 				ModelMetadata: {
 					name: 'ModelMetadata',

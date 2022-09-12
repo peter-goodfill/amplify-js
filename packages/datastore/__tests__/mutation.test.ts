@@ -365,10 +365,11 @@ async function instantiateMutationProcessor({
 		dequeue: () => {
 			mutationQueue.pop();
 		},
+		getModelVersion: () => ({ id: 1, version: 1 }),
 	};
 
 	const storage = {
-		runExclusive: fn => fn(),
+		runExclusive: fn => Promise.resolve(fn()),
 	};
 
 	const mutationProcessor = new MutationProcessor(

@@ -60,6 +60,7 @@ describe('Indexed db storage test', () => {
 			`${DATASTORE}_Setting`,
 			`${SYNC}_ModelMetadata`,
 			`${SYNC}_MutationEvent`,
+			`${SYNC}_PendingMutationVersion`,
 			`${USER}_Author`,
 			`${USER}_Blog`,
 			`${USER}_BlogOwner`,
@@ -575,6 +576,7 @@ describe('DB versions migration', () => {
 		expect([...db.objectStoreNames].sort()).toMatchObject(
 			[
 				...v1Data.data.tables.map(({ name }) => name),
+				`${SYNC}_PendingMutationVersion`,
 				// Simulate Comment model added after IndexedDB was created,
 				// but before migration
 				`${USER}_Comment`,

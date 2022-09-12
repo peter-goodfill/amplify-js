@@ -17,7 +17,7 @@ import {
 	InternalSchema,
 	SchemaModel,
 } from '../src/types';
-import { MutationEvent } from '../src/sync/';
+import { MutationEvent, PendingMutationVersion } from '../src/sync/';
 import { USER, extractPrimaryKeyFieldNames } from '../src/util';
 
 let initSchema: typeof initSchemaType;
@@ -66,7 +66,7 @@ describe('Outbox tests', () => {
 				head = await outbox.peek(s);
 			}
 
-			const modelData: ModelType = JSON.parse(head.data);
+			const modelData: ModelType = head.data;
 
 			expect(head.modelId).toEqual(modelId);
 			expect(head.operation).toEqual(TransformerMutationType.CREATE);
@@ -108,7 +108,7 @@ describe('Outbox tests', () => {
 			while (!head) {
 				head = await outbox.peek(s);
 			}
-			const modelData: ModelType = JSON.parse(head.data);
+			const modelData: ModelType = head.data;
 
 			expect(head.modelId).toEqual(modelId);
 			expect(head.operation).toEqual(TransformerMutationType.UPDATE);
@@ -149,7 +149,7 @@ describe('Outbox tests', () => {
 		expect(mutationsForModel.length).toEqual(2);
 
 		const [_inProgress, nextMutation] = mutationsForModel;
-		const modelData: ModelType = JSON.parse(nextMutation.data);
+		const modelData = nextMutation.data as ModelType;
 
 		// and the next item in the queue should be updatedModel3
 		expect(modelData.field1).toEqual('another value3');
@@ -174,7 +174,7 @@ describe('Outbox tests', () => {
 			);
 
 			const inProgress = await outbox.peek(s);
-			const inProgressData = JSON.parse(inProgress.data);
+			const inProgressData = inProgress.data;
 			// updatedModel3 should now be in progress with the _version from the mutation response
 
 			expect(inProgressData.field1).toEqual('another value3');
@@ -219,7 +219,7 @@ describe('Outbox tests', () => {
 			while (!head) {
 				head = await outbox.peek(s);
 			}
-			const modelData: ModelType = JSON.parse(head.data);
+			const modelData: ModelType = head.data;
 
 			expect(head.modelId).toEqual(modelId);
 			expect(head.operation).toEqual(TransformerMutationType.UPDATE);
@@ -252,7 +252,7 @@ describe('Outbox tests', () => {
 		expect(mutationsForModel.length).toEqual(2);
 
 		const [_inProgress, nextMutation] = mutationsForModel;
-		const modelData: ModelType = JSON.parse(nextMutation.data);
+		const modelData = nextMutation.data as ModelType;
 
 		// and the next item in the queue should be updatedModel2
 		expect(modelData.field1).toEqual('another value2');
@@ -276,7 +276,7 @@ describe('Outbox tests', () => {
 			);
 
 			const inProgress = await outbox.peek(s);
-			const inProgressData = JSON.parse(inProgress.data);
+			const inProgressData = inProgress.data;
 
 			// updatedModel2 should now be in progress with the _version from the mutation response
 			expect(inProgressData.field1).toEqual('another value2');
@@ -323,7 +323,7 @@ describe('Outbox tests', () => {
 
 		await Storage.runExclusive(async s => {
 			const head = await outbox.peek(s);
-			const headData = JSON.parse(head.data);
+			const headData = head.data;
 
 			expect(headData.field1).toEqual(field1);
 			expect(headData.dateCreated).toEqual(currentTimestamp);
@@ -347,6 +347,10 @@ async function instantiateOutbox(): Promise<void> {
 		'MutationEvent'
 	] as PersistentModelConstructor<MutationEvent>;
 
+	const PendingMutationVersion = syncClasses[
+		'PendingMutationVersion'
+	] as PersistentModelConstructor<PendingMutationVersion>;
+
 	await DataStore.start();
 
 	Storage = <StorageType>DataStore.storage;
@@ -360,6 +364,7 @@ async function instantiateOutbox(): Promise<void> {
 	outbox = new MutationEventOutbox(
 		schema,
 		MutationEvent,
+		PendingMutationVersion,
 		modelInstanceCreator,
 		ownSymbol
 	);
@@ -393,10 +398,10 @@ async function processMutationResponse(
 	record,
 	recordOp
 ): Promise<void> {
-	await outbox.dequeue(storage, record, recordOp);
+	await outbox.dequeue(storage);
 
 	const modelConstructor = Model as PersistentModelConstructor<any>;
 	const model = modelInstanceCreator(modelConstructor, record);
-	const modelDefinition = getModelDefinition(model);
-	await merger.merge(storage, model, modelDefinition);
+	const modelDefinition = getModelDefinition(modelConstructor);
+	await merger.merge(storage, model, modelDefinition, modelConstructor);
 }
