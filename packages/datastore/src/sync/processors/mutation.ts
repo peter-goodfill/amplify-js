@@ -42,6 +42,7 @@ import {
 	getTokenForCustomAuth,
 } from '../utils';
 import { getMutationErrorType } from './errorMaps';
+import { ModelPredicateCreator } from '../../predicates';
 
 const MAX_ATTEMPTS = 10;
 
@@ -133,7 +134,7 @@ class MutationProcessor {
 		}
 
 		this.processing = true;
-		let head: MutationEvent;
+		let head: MutationEvent | undefined;
 		const namespaceName = USER;
 
 		// start to drain outbox
@@ -141,7 +142,7 @@ class MutationProcessor {
 			this.processing &&
 			(head = await this.outbox.peek(this.storage)) !== undefined
 		) {
-			const { model, operation, data, condition } = head;
+			const { model, operation, data, condition, modelPk } = head;
 			const modelConstructor = this.userClasses[
 				model
 			] as PersistentModelConstructor<MutationEvent>;
@@ -158,6 +159,50 @@ class MutationProcessor {
 
 				const operationAuthModes = modelAuthModes[operation.toUpperCase()];
 
+				const _modelDefinition = this.schema.namespaces['user'].models[model];
+
+				// stringify nested objects of type AWSJSON
+				// this allows us to return parsed JSON to users (see `castInstanceType()` in datastore.ts),
+				// but still send the object correctly over the wire
+				const replacer = (k, v) => {
+					const isAWSJSON =
+						k &&
+						v !== null &&
+						typeof v === 'object' &&
+						_modelDefinition.fields[k] &&
+						_modelDefinition.fields[k].type === 'AWSJSON';
+
+					if (isAWSJSON) {
+						return JSON.stringify(v);
+					}
+					return v;
+				};
+
+				const v = await this.storage.runExclusive(async storage => {
+					const pendingMutationVersion = await this.outbox.getModelVersion(
+						storage,
+						data,
+						_modelDefinition
+					);
+					if (pendingMutationVersion) {
+						return pendingMutationVersion.version;
+					}
+
+					const predicate = ModelPredicateCreator.createForPk<any>(
+						_modelDefinition,
+						modelPk
+					);
+
+					const [fromDB] = await storage.query(modelConstructor, predicate);
+					return fromDB?._version;
+				});
+
+				const mutationVersion = v || data._version;
+				const modelData = JSON.stringify(
+					{ ...data, _version: mutationVersion },
+					replacer
+				);
+
 				let authModeAttempts = 0;
 				const authModeRetry = async () => {
 					try {
@@ -168,7 +213,7 @@ class MutationProcessor {
 							namespaceName,
 							model,
 							operation,
-							data,
+							modelData,
 							condition,
 							modelConstructor,
 							this.MutationEvent,
@@ -223,7 +268,8 @@ class MutationProcessor {
 			await this.storage.runExclusive(async storage => {
 				// using runExclusive to prevent possible race condition
 				// when another record gets enqueued between dequeue and peek
-				await this.outbox.dequeue(storage, record, operation);
+				await this.outbox.dequeue(storage);
+				// await this.outbox.dequeue(storage, record, operation);
 				hasMore = (await this.outbox.peek(storage)) !== undefined;
 			});
 

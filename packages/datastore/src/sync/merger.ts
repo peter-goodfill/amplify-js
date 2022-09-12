@@ -7,6 +7,11 @@ import {
 } from '../types';
 import { MutationEventOutbox } from './outbox';
 import { getIdentifierValue } from './utils';
+import {
+	extractPrimaryKeyFieldNames,
+	extractPrimaryKeysAndValues,
+} from '../util';
+import { ModelPredicateCreator } from '../predicates';
 
 // https://github.com/aws-amplify/amplify-js/blob/datastore-docs/packages/datastore/docs/sync-engine.md#merger
 class ModelMerger {
@@ -18,8 +23,9 @@ class ModelMerger {
 	public async merge<T extends ModelInstanceMetadata>(
 		storage: Storage,
 		model: T,
-		modelDefinition: SchemaModel
-	): Promise<OpType> {
+		modelDefinition: SchemaModel,
+		modelConstructor: PersistentModelConstructor<T>
+	): Promise<OpType | undefined> {
 		let result: OpType;
 		const mutationsForModel = await this.outbox.getForModel(
 			storage,
@@ -28,17 +34,37 @@ class ModelMerger {
 		);
 
 		const isDelete = model._deleted;
+		const modelPkFields = extractPrimaryKeyFieldNames(modelDefinition);
+		const identifierObject = extractPrimaryKeysAndValues(model, modelPkFields);
+		const predicate = ModelPredicateCreator.createForPk<T>(
+			modelDefinition,
+			identifierObject
+		);
 
-		if (mutationsForModel.length === 0) {
+		if (mutationsForModel.length > 0) {
+			await this.outbox.updateModelVersion(storage, model, modelDefinition);
+			return;
+		}
+
+		const [fromDB] = await storage.query(modelConstructor, predicate);
+
+		if (
+			!fromDB ||
+			fromDB._version === undefined ||
+			fromDB._version < model._version
+		) {
 			if (isDelete) {
 				result = OpType.DELETE;
 				await storage.delete(model, undefined, this.ownSymbol);
 			} else {
 				[[, result]] = await storage.save(model, undefined, this.ownSymbol);
 			}
+
+			await this.outbox.deleteModelVersion(storage, model, modelDefinition);
+			return result;
 		}
 
-		return result;
+		return undefined;
 	}
 
 	public async mergePage(

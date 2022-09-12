@@ -1017,12 +1017,6 @@ export function internalTestSchema(): InternalSchema {
 								isRequired: true,
 								isArray: false,
 							},
-							data: {
-								name: 'data',
-								type: 'String',
-								isRequired: true,
-								isArray: false,
-							},
 							modelId: {
 								name: 'modelId',
 								type: 'String',

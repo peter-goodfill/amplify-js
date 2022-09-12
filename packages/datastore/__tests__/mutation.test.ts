@@ -86,7 +86,7 @@ describe('MutationProcessor', () => {
 	});
 
 	// Test for this PR: https://github.com/aws-amplify/amplify-js/pull/6542
-	describe('100% Packet Loss Axios Error', () => {
+	describe.only('100% Packet Loss Axios Error', () => {
 		it('Should result in Network Error and get handled without breaking the Mutation Processor', async () => {
 			const mutationProcessorSpy = jest.spyOn(mutationProcessor, 'resume');
 
@@ -368,7 +368,7 @@ async function instantiateMutationProcessor({
 	};
 
 	const storage = {
-		runExclusive: fn => fn(),
+		runExclusive: fn => Promise.resolve(fn()),
 	};
 
 	const mutationProcessor = new MutationProcessor(
