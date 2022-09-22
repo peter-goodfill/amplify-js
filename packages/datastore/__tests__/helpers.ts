@@ -38,9 +38,12 @@ export const UUID_REGEX =
  * @param values An object for specific values to test. Format of key: value | regex | v => bool
  */
 export function expectMutation(mutation, values) {
-	const data = JSON.parse(mutation.data);
+	const data = mutation.data;
 	const matchers = {
 		id: UUID_REGEX,
+		_version: undefined,
+		_lastChangedAt: undefined,
+		_deleted: undefined,
 		...values,
 	};
 	const errors = [

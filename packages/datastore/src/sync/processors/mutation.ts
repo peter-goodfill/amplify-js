@@ -302,7 +302,7 @@ class MutationProcessor {
 			async (
 				model: string,
 				operation: TransformerMutationType,
-				data: string,
+				data: ModelInstanceMetadata,
 				condition: string,
 				modelConstructor: PersistentModelConstructor<PersistentModel>,
 				MutationEvent: PersistentModelConstructor<MutationEvent>,
@@ -487,7 +487,7 @@ class MutationProcessor {
 		namespaceName: string,
 		model: string,
 		operation: TransformerMutationType,
-		data: string,
+		data: ModelInstanceMetadata,
 		condition: string
 	): [string, Record<string, any>, GraphQLCondition, string, SchemaModel] {
 		const modelDefinition = this.schema.namespaces[namespaceName].models[model];
@@ -499,7 +499,7 @@ class MutationProcessor {
 			([transformerMutationType]) => transformerMutationType === operation
 		);
 
-		const { _version, ...parsedData } = <ModelInstanceMetadata>JSON.parse(data);
+		const { _version, ...parsedData } = data;
 
 		// include all the fields that comprise a custom PK if one is specified
 		const deleteInput = {};
