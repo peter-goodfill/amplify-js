@@ -85,7 +85,9 @@ class SyncProcessor {
 		return predicateToGraphQLFilter(predicatesGroup);
 	}
 
-	private async retrievePage<T extends ModelInstanceMetadata>(
+	private async retrievePage<
+		T extends ModelInstanceMetadata = ModelInstanceMetadata
+	>(
 		modelDefinition: SchemaModel,
 		lastSync: number,
 		nextToken: string,
